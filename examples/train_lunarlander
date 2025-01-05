@@ -1,0 +1,167 @@
+import gymnasium as gym
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import sys
+from datetime import datetime
+
+# Add parent directory to path to import agents
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from agents.dqn import DQNAgent
+
+def plot_training_results(rewards, moving_avg, title):
+    """Plot rewards and moving average."""
+    plt.figure(figsize=(10, 5))
+    plt.plot(rewards, label='Episode Reward', alpha=0.5)
+    plt.plot(moving_avg, label='Moving Average (100 episodes)', linewidth=2)
+    plt.xlabel('Episode')
+    plt.ylabel('Total Reward')
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    plt.savefig(f'lunar_training_{timestamp}.png')
+    plt.close()
+
+def train_lunarlander(render_freq=100, total_episodes=1000):
+    """Train agent on LunarLander environment."""
+    # Create environment
+    env = gym.make('LunarLander-v2', render_mode="rgb_array")
+    
+    # Initialize agent
+    state_dim = env.observation_space.shape
+    action_dim = env.action_space.n
+    
+    agent = DQNAgent(
+        state_dim=state_dim,
+        action_dim=action_dim,
+        learning_rate=0.0005,  # Lower learning rate for stability
+        gamma=0.99,
+        epsilon_start=1.0,
+        epsilon_end=0.01,
+        epsilon_decay_steps=50000,  # Longer exploration
+        memory_size=100000,  # Larger memory for complex environment
+        batch_size=64,
+        target_update_freq=1000,  # Less frequent updates for stability
+        double_dqn=True,
+        dueling=True
+    )
+    
+    # Training metrics
+    rewards = []
+    moving_avg_rewards = []
+    best_mean_reward = -np.inf
+    
+    # Training loop
+    for episode in range(total_episodes):
+        state, _ = env.reset()
+        total_reward = 0
+        done = False
+        truncated = False
+        steps = 0
+        
+        while not (done or truncated):
+            # Get action
+            action = agent.get_action(state)
+            
+            # Take action
+            next_state, reward, done, truncated, _ = env.step(action)
+            
+            # Store experience
+            agent.store_experience(state, action, reward, next_state, done)
+            
+            # Train agent
+            loss = agent.train_step()
+            
+            total_reward += reward
+            state = next_state
+            steps += 1
+            
+            # Optional rendering
+            if episode % render_freq == 0:
+                env.render()
+        
+        # Record metrics
+        rewards.append(total_reward)
+        mean_reward = np.mean(rewards[-100:]) if len(rewards) >= 100 else np.mean(rewards)
+        moving_avg_rewards.append(mean_reward)
+        
+        # Save best model
+        if mean_reward > best_mean_reward:
+            best_mean_reward = mean_reward
+            agent.save('best_lunar_model.h5')
+        
+        # Print progress
+        print(f"Episode {episode+1}/{total_episodes}, "
+              f"Reward: {total_reward:.1f}, "
+              f"Moving Avg: {mean_reward:.1f}, "
+              f"Steps: {steps}, "
+              f"Epsilon: {agent._get_epsilon():.3f}")
+        
+        # Early stopping if solved
+        if mean_reward >= 200:
+            print("\nEnvironment solved!")
+            break
+    
+    return rewards, moving_avg_rewards
+
+def evaluate_agent(model_path, episodes=100):
+    """Evaluate trained agent."""
+    env = gym.make('LunarLander-v2', render_mode="rgb_array")
+    state_dim = env.observation_space.shape
+    action_dim = env.action_space.n
+    
+    # Load agent
+    agent = DQNAgent(state_dim, action_dim)
+    agent.load(model_path)
+    
+    rewards = []
+    for episode in range(episodes):
+        state, _ = env.reset()
+        total_reward = 0
+        done = False
+        truncated = False
+        
+        while not (done or truncated):
+            action = agent.get_action(state, training=False)
+            state, reward, done, truncated, _ = env.step(action)
+            total_reward += reward
+            env.render()
+        
+        rewards.append(total_reward)
+        print(f"Evaluation Episode {episode+1}: Reward = {total_reward:.1f}")
+    
+    print(f"\nAverage Reward over {episodes} episodes: {np.mean(rewards):.1f}")
+    return rewards
+
+def main():
+    # Set seeds for reproducibility
+    np.random.seed(42)
+    tf.random.set_seed(42)
+    
+    # Training parameters
+    TOTAL_EPISODES = 1000
+    RENDER_FREQ = 100
+    
+    print("Starting LunarLander training...")
+    rewards, moving_avg = train_lunarlander(RENDER_FREQ, TOTAL_EPISODES)
+    
+    # Plot results
+    plot_training_results(rewards, moving_avg, "LunarLander-v2 Training Results")
+    
+    # Evaluate best model
+    print("\nEvaluating best model...")
+    eval_rewards = evaluate_agent('best_lunar_model.h5')
+    
+    # Plot evaluation results
+    plt.figure(figsize=(10, 5))
+    plt.hist(eval_rewards, bins=20)
+    plt.xlabel('Total Reward')
+    plt.ylabel('Count')
+    plt.title('Distribution of Evaluation Rewards')
+    plt.savefig('lunar_evaluation.png')
+    plt.close()
+
+if __name__ == "__main__":
+    main()
