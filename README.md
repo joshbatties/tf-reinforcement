@@ -136,13 +136,6 @@ tf-reinforcement/
 ### LunarLander-v2
 - DQN achieves solving criteria (score > 200) in ~500 episodes
 
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request
 
 ## Future Work
 
@@ -150,14 +143,6 @@ tf-reinforcement/
 - [ ] Add PPO implementation
 - [ ] Add support for continuous action spaces
 - [ ] Add more environment examples
-
-## Requirements
-
-- Python 3.7+
-- TensorFlow 2.8+
-- Gymnasium
-- NumPy
-- Matplotlib
 
 ## License
 
