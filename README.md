@@ -113,19 +113,6 @@ for episode in range(500):
     loss = agent.train_step()
 ```
 
-## Architecture
-
-The project follows a modular design:
-
-```
-tf-reinforcement/
-├── agents/              # Agent implementations
-│   ├── base.py         # Base agent classes
-│   ├── dqn.py         # DQN implementation
-│   └── policy_gradient.py
-├── examples/           # Training scripts
-└── requirements.txt
-```
 
 ## Performance
 
